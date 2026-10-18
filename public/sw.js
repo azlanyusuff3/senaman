@@ -1,8 +1,19 @@
-const CACHE='senaman-shell-v1';
+const CACHE='senaman-shell-v2';
 const MEDIA='senaman-media-v1';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>{
- event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
+ event.waitUntil((async()=>{
+  const cache=await caches.open(CACHE);
+  await cache.addAll(SHELL);
+  // Vite production assets have hashed filenames; discover and cache them now,
+  // so the full UI loads offline even on the first subsequent launch.
+  try {
+   const html=await (await fetch('./index.html',{cache:'no-store'})).text();
+   const paths=[...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)].map(m=>new URL(m[1],self.registration.scope).href);
+   if(paths.length)await cache.addAll(paths);
+  }catch(_){}
+  await self.skipWaiting();
+ })());
 });
 self.addEventListener('activate',event=>{
  event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>![CACHE,MEDIA].includes(k)).map(k=>caches.delete(k)))),self.clients.claim()]));
