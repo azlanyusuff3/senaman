@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "Senaman — Home Personal Trainer",
+  "short_name": "Senaman",
+  "description": "Personal trainer rumah. Fokus core, dumbbell, treadmill dan latihan tanpa alat.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1414",
+  "theme_color": "#101818",
+  "lang": "ms",
+  "icons": [
+    {"src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
