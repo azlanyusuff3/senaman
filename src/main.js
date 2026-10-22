@@ -1,5 +1,5 @@
 import './style.css';
-import {EXERCISES,GROUPS,PLANS,getExercise,getPlan,durationOf,levelName} from './data.js';
+import {EXERCISES,GROUPS,PLANS,getExercise,getPlan,durationOf,levelName,buildCorePlan} from './data.js';
 
 const STORE = 'senaman-v1';
 const state = {
@@ -37,8 +37,8 @@ function art(ex,animated=false) {
   if (!ex || !ex.slug) return '<div class="art-fallback" aria-label="Senaman tanpa animasi">♥</div>';
   const prefix = 'https://cdn.jsdelivr.net/npm/@bryllim/workout-guide@1.0.0/assets/' + encodeURIComponent(ex.slug) + '/frame-';
   if(animated) return '<div class="frames" role="img" aria-label="Ilustrasi pergerakan '+escapeHtml(ex.name)+'">' +
-    [1,2,3].map(n=>'<img loading="lazy" data-demo="1" src="'+prefix+n+'.svg" alt="" aria-hidden="true">').join('') + '</div>';
-  return '<img loading="lazy" data-demo="1" src="'+prefix+'1.svg" alt="Ilustrasi '+escapeHtml(ex.name)+'"><span class="art-fallback" aria-hidden="true">◎</span>';
+    [1,2,3].map(n=>'<img loading="lazy" data-demo="1" src="'+prefix+n+'.png" alt="" aria-hidden="true">').join('') + '</div>';
+  return '<img loading="lazy" data-demo="1" src="'+prefix+'1.png" alt="Ilustrasi '+escapeHtml(ex.name)+'"><span class="art-fallback" aria-hidden="true">◎</span>';
 }
 function bodyMap(){
   const selected=state.focus;
@@ -207,10 +207,7 @@ document.addEventListener('click',e=>{
  else if(action==='start'){start(getPlan(id));window.scrollTo(0,0);return;}
  else if(action==='single'){const ex=getExercise(id);start({name:ex.name,items:[id],rounds:1,rest:0});return;}
  else if(action==='generate'){
-  const pool=EXERCISES.filter(x=>x.group==='core'&&x.level<=state.customizeLevel);
-  const selection=pool.slice(0,Math.min(pool.length,Math.max(3,Math.round(state.customizeMinutes/3))));
-  const rounds=state.customizeMinutes>=20?3:2;
-  start({name:'Core '+state.customizeMinutes+' (Custom)',items:selection.map(x=>x.id),rounds,rest:25});return;
+  start(buildCorePlan(state.customizeMinutes,state.customizeLevel));return;
  }
  else if(action==='next'){advance(false);return;}
  else if(action==='previous'){const w=state.active;w.index=Math.max(0,w.index-1);const x=w.sequence[w.index];w.remaining=x.type==='rest'?x.seconds:getExercise(x.id).seconds;w.paused=true;}

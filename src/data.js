@@ -14,7 +14,7 @@ export const EXERCISES = [
  {id:'row',name:'Dumbbell Row',group:'back',gear:'dumbbell',level:1,seconds:45,reps:'10 / sisi',slug:'one-arm-dumbbell-row',video:'roCP6wCXPqo',desc:'Kuatkan belakang dan lengan menggunakan dumbbell.',steps:['Bongkok pada pinggul, sokong tangan pada permukaan kukuh.','Tarik dumbbell ke arah pinggul, siku dekat sisi badan.','Turunkan perlahan dan tukar tangan.'],tip:'Elakkan membulatkan belakang atau menyentap beban.'},
  {id:'w-raise',name:'Prone W Raise',group:'back',gear:'bodyweight',level:1,seconds:40,reps:'10 reps',slug:null,desc:'Aktifkan otot belakang atas dengan pergerakan kecil.',steps:['Meniarap, dahi disokong dengan tuala jika perlu.','Bengkok siku membentuk W, angkat tangan sedikit.','Rapatkan tulang belikat tanpa mendongakkan leher.'],tip:'Gerakan kecil dan perlahan sahaja.'},
  {id:'superman',name:'Superman Hold',group:'back',gear:'bodyweight',level:2,seconds:25,reps:'15–20 saat',slug:'superman',desc:'Latihan ekstensor belakang untuk yang selesa melakukannya.',steps:['Meniarap dengan tangan ke hadapan.','Angkat lengan dan kaki sedikit tanpa melampau.','Tahan pendek, turun dan rehat.'],tip:'Langkau jika menimbulkan sakit belakang.'},
- {id:'push-up',name:'Incline Push-up',group:'chest',gear:'bodyweight',level:1,seconds:40,reps:'8–12 reps',slug:'push-up',desc:'Push-up menggunakan meja/permukaan yang benar-benar kukuh.',steps:['Letakkan tangan pada permukaan stabil yang tidak bergerak.','Pastikan badan lurus, siku sedikit ke belakang.','Turunkan dada perlahan kemudian tolak naik.'],tip:'Lebih tinggi permukaan, lebih mudah senaman.'},
+ {id:'push-up',name:'Incline Push-up',group:'chest',gear:'bodyweight',level:1,seconds:40,reps:'8–12 reps',slug:'incline-push-up',desc:'Push-up menggunakan meja/permukaan yang benar-benar kukuh.',steps:['Letakkan tangan pada permukaan stabil yang tidak bergerak.','Pastikan badan lurus, siku sedikit ke belakang.','Turunkan dada perlahan kemudian tolak naik.'],tip:'Lebih tinggi permukaan, lebih mudah senaman.'},
  {id:'floor-press',name:'Dumbbell Floor Press',group:'chest',gear:'dumbbell',level:1,seconds:45,reps:'10 reps',slug:'dumbbell-bench-press',desc:'Tekan dumbbell dari lantai tanpa perlu bench.',steps:['Baring dengan lutut bengkok, pegang dumbbell berhampiran dada.','Tekan ke atas tanpa hentak dumbbell.','Turunkan hingga lengan atas sentuh lantai secara terkawal.'],tip:'Mula dengan dumbbell ringan.'},
  {id:'shoulder-press',name:'Seated Dumbbell Press',group:'shoulder',gear:'dumbbell',level:2,seconds:45,reps:'8–10 reps',slug:'seated-dumbbell-press',desc:'Menguatkan bahu dengan dumbbell.',steps:['Duduk pada kerusi kukuh, pegang dumbbell pada paras bahu.','Kemaskan core, tekan beban ke atas dengan kawalan.','Turunkan perlahan; jangan melengkungkan pinggang.'],tip:'Gunakan beban ringan dan hentikan jika bahu sakit.'},
  {id:'lateral-raise',name:'Dumbbell Lateral Raise',group:'shoulder',gear:'dumbbell',level:2,seconds:40,reps:'10 reps',slug:'lateral-raise',desc:'Latihan bahu sisi dengan beban ringan.',steps:['Pegang dumbbell di sisi dengan siku sedikit bengkok.','Angkat ke sisi hingga hampir paras bahu.','Turunkan perlahan tanpa hayunan.'],tip:'Tak perlu angkat lebih tinggi daripada bahu.'},
@@ -53,3 +53,32 @@ export const durationOf = plan => {
  return Math.max(1,Math.round(seconds/60));
 };
 export const levelName = level => ['','Beginner','Intermediate','Advanced'][level] || 'Beginner';
+
+// Core workout generator. Picks exercises that match the chosen level (exact level first,
+// then easier ones to fill), then chooses exercise count + rounds so the real total
+// duration lands as close as possible to the requested minutes.
+export const buildCorePlan = (minutes, level) => {
+ const lvl = Math.min(3, Math.max(1, Number(level) || 1));
+ const target = Math.max(1, Number(minutes) || 15) * 60;
+ const rest = [0, 25, 30, 35][lvl];
+ const order = (a, b) => (lvl - a.level) - (lvl - b.level);
+ const pool = EXERCISES.filter(x => x.group === 'core' && x.level <= lvl)
+  .map((x, i) => ({x, i}))
+  .sort((a, b) => order(a.x, b.x) || a.i - b.i)
+  .map(o => o.x);
+ let best = null;
+ for (let rounds = 1; rounds <= 6; rounds++) {
+  for (let n = Math.min(3, pool.length); n <= pool.length; n++) {
+   const items = pool.slice(0, n);
+   const seconds = items.reduce((t, x) => t + x.seconds + rest, 0) * rounds - rest;
+   const diff = Math.abs(seconds - target);
+   // Prefer the closest duration; on near-ties prefer more variety over more repeats.
+   if (!best || diff < best.diff - 20 || (diff <= best.diff + 20 && n > best.n && rounds <= best.rounds)) {
+    best = {items, rounds, seconds, diff, n};
+   }
+  }
+ }
+ // Keep a sensible easy-to-hard flow inside the session.
+ const ids = EXERCISES.filter(x => best.items.includes(x)).map(x => x.id);
+ return {name: 'Core ' + minutes + ' (Custom)', items: ids, rounds: best.rounds, rest};
+};
