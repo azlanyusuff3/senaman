@@ -89,13 +89,19 @@ function home(){
 function exerciseCard(ex){
  return '<article class="exercise-card"><div class="exercise-art">'+art(ex)+'</div><div class="exercise-info"><div class="label-list"><span class="small-label">'+gearName(ex.gear)+'</span><span class="small-label">'+levelName(ex.level)+'</span></div><h3>'+escapeHtml(ex.name)+'</h3><p>'+escapeHtml(ex.desc)+'</p><button class="btn small secondary" data-action="details" data-id="'+ex.id+'">Lihat gerakan →</button></div></article>';
 }
+// Results block is rendered separately so typing in the search box only swaps this part
+// of the DOM instead of rebuilding (and re-focusing) the whole page on every keystroke.
+function exerciseResults(){
+ const q=state.query.toLowerCase();
+ const list = EXERCISES.filter(ex=>(state.focus==='all'||ex.group===state.focus) && (state.gear==='all'||ex.gear===state.gear) && (!state.difficulty||ex.level<=state.difficulty) && (ex.name.toLowerCase().includes(q)||ex.desc.toLowerCase().includes(q)));
+ return '<div class="section-head"><h3>'+escapeHtml(labelFor(state.focus==='all'?'all':state.focus))+'</h3><span class="muted">'+list.length+' gerakan</span></div>'+
+ (list.length?'<div class="exercise-grid">'+list.map(exerciseCard).join('')+'</div>':'<div class="empty">Tiada senaman untuk filter ini. Cuba tukar kategori atau equipment.</div>');
+}
 function explore(){
- const list = EXERCISES.filter(ex=>(state.focus==='all'||ex.group===state.focus) && (state.gear==='all'||ex.gear===state.gear) && (!state.difficulty||ex.level<=state.difficulty) && (ex.name.toLowerCase().includes(state.query.toLowerCase())||ex.desc.toLowerCase().includes(state.query.toLowerCase())));
  return '<button class="back" data-action="go" data-page="home">← Kembali</button><div class="eyebrow">EXERCISE LIBRARY</div><h1 style="font-size:42px;margin:7px 0">Cari gerakan yang sesuai</h1><p class="muted">Tap kategori otot dan lihat animasi, teknik serta video form guide bila tersedia.</p>'+
  '<div class="group-row" style="margin:19px 0"><button class="group-chip '+(state.focus==='all'?'active':'')+'" data-action="filter-group" data-id="all">Semua</button>'+GROUPS.map(x=>'<button class="group-chip '+(state.focus===x.id?'active':'')+'" data-action="filter-group" data-id="'+x.id+'">'+x.icon+' '+x.label+'</button>').join('')+'</div>'+
  '<div class="explore-toolbar"><input class="search" type="search" placeholder="Cari nama senaman..." id="exercise-search" value="'+escapeHtml(state.query)+'" aria-label="Cari senaman"><select class="select" data-change="gear"><option value="all">Semua alat</option>'+['bodyweight','dumbbell','treadmill'].map(g=>'<option value="'+g+'" '+(state.gear===g?'selected':'')+'>'+gearName(g)+'</option>').join('')+'</select><select class="select" data-change="difficulty"><option value="0">Semua tahap</option>'+[1,2,3].map(l=>'<option value="'+l+'" '+(state.difficulty===l?'selected':'')+'>Sehingga '+levelName(l)+'</option>').join('')+'</select></div>'+
- '<div class="section-head"><h3>'+escapeHtml(labelFor(state.focus==='all'?'all':state.focus))+'</h3><span class="muted">'+list.length+' gerakan</span></div>'+
- (list.length?'<div class="exercise-grid">'+list.map(exerciseCard).join('')+'</div>':'<div class="empty">Tiada senaman untuk filter ini. Cuba tukar kategori atau equipment.</div>');
+ '<div id="exercise-results">'+exerciseResults()+'</div>';
 }
 function detail(){
  const ex=getExercise(state.details); if(!ex){state.details=null;return explore();}
@@ -112,8 +118,16 @@ function progress(){
  '<div class="section-head"><h2>Sejarah latihan</h2><button class="btn small secondary" data-action="export">⇩ Export data</button></div>'+
  (recent.length?'<div class="progress-list">'+recent.map(item=>'<div class="progress-item"><div><strong>'+escapeHtml(item.name)+'</strong><small>'+escapeHtml(item.date)+' • '+item.exercises+' set gerakan selesai</small></div><span class="tag">'+Math.round(item.seconds/60)+' min</span></div>').join('')+'</div>':'<div class="empty">Belum ada rekod. Cuba mulakan Core Starter hari ini.</div>');
 }
+function installCard(){
+ const standalone=window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone;
+ if(standalone)return '';
+ if(state.installPrompt)return '<div class="settings-card"><div><strong>Pasang app</strong><small>Letak Senaman pada skrin utama dan guna seperti app biasa, termasuk offline.</small></div><button class="btn small" data-action="install">Pasang</button></div>';
+ // iOS Safari has no install prompt API, so explain the manual route.
+ if(/iphone|ipad|ipod/i.test(navigator.userAgent))return '<div class="settings-card"><div><strong>Pasang app</strong><small>Dalam Safari, tekan butang Share kemudian pilih "Add to Home Screen".</small></div></div>';
+ return '';
+}
 function settings(){
- return '<div class="eyebrow">PREFERENCES</div><h1 style="font-size:42px;margin:8px 0 18px">Settings</h1>'+
+ return '<div class="eyebrow">PREFERENCES</div><h1 style="font-size:42px;margin:8px 0 18px">Settings</h1>'+installCard()+
  '<div class="settings-card"><div><strong>Voice Coach</strong><small>Suara Bahasa Melayu melalui text-to-speech browser, jika disokong.</small></div><input type="checkbox" class="toggle" data-change="voice" '+(state.voice?'checked':'')+' aria-label="Aktifkan voice coach"></div>'+
  '<div class="settings-card"><div><strong>Export rekod workout</strong><small>Simpan salinan JSON pada device.</small></div><button class="btn small secondary" data-action="export">Export</button></div>'+
  '<div class="settings-card"><div><strong>Reset progress</strong><small>Padam rekod local browser ini sahaja.</small></div><button class="btn small danger" data-action="reset">Reset</button></div>'+
@@ -144,15 +158,16 @@ function makeSequence(plan){
 function start(plan){
  const sequence=makeSequence(plan);
  if(!sequence.length)return;
- state.finish=null; state.details=null; state.active={name:plan.name,sequence,index:0,remaining:getExercise(sequence[0].id).seconds,elapsed:0,completed:0,paused:false,started:new Date().toISOString()};
- if(navigator.wakeLock?.request) navigator.wakeLock.request('screen').then(lock=>state.wakeLock=lock).catch(()=>{});
+ state.finish=null; state.details=null; state.active={name:plan.name,sequence,index:0,remaining:getExercise(sequence[0].id).seconds,elapsed:0,done:new Set(),paused:false,lastTick:Date.now(),started:new Date().toISOString()};
+ acquireWakeLock();
  speak('Jom mula senaman. '+getExercise(sequence[0].id).name);
  render();
 }
 function advance(skipped=false){
  const w=state.active;if(!w)return;
  const current=w.sequence[w.index];
- if(current.type==='exercise'&&!skipped)w.completed++;
+ // Track by sequence index so going back and finishing a move again is not double counted.
+ if(current.type==='exercise'&&!skipped)w.done.add(w.index);
  w.index++;
  if(w.index>=w.sequence.length){finishWorkout();return;}
  const item=w.sequence[w.index];w.remaining=item.type==='rest'?item.seconds:getExercise(item.id).seconds;
@@ -163,15 +178,15 @@ function advance(skipped=false){
 function finishWorkout(){
  const w=state.active;if(!w)return;
  const seconds=w.elapsed;
- const entry={name:w.name,date:today(),seconds,exercises:w.completed};
+ const entry={name:w.name,date:today(),seconds,exercises:w.done.size};
  state.history.push(entry);store();
- state.finish=entry; state.active=null;state.wakeLock?.release().catch(()=>{});state.wakeLock=null;
+ state.finish=entry; state.active=null;releaseWakeLock();
  speak('Syabas. Workout selesai.');
  render();
 }
 function cancelWorkout(){
  if(window.confirm('Keluar dari workout? Progress sesi ini tidak akan direkodkan.')){
-  state.active=null;state.wakeLock?.release().catch(()=>{});state.wakeLock=null;
+  state.active=null;releaseWakeLock();
   window.speechSynthesis?.cancel();render();
  }
 }
@@ -180,7 +195,7 @@ function session(){
  const ex=rest?null:getExercise(item.id);
  const total=rest?item.seconds:ex.seconds;
  const position=w.index+1,percent=(position-1+(1-w.remaining/total))/w.sequence.length*100;
- return '<div class="session-shell"><div class="session-top"><button class="back" data-action="exit" style="padding:0">✕ Keluar</button><span>'+escapeHtml(w.name)+' • '+position+'/'+w.sequence.length+'</span><span>◷ '+clock(w.elapsed)+'</span></div>'+
+ return '<div class="session-shell"><div class="session-top"><button class="back" data-action="exit" style="padding:0">✕ Keluar</button><span>'+escapeHtml(w.name)+' • '+position+'/'+w.sequence.length+'</span><span id="elapsed">◷ '+clock(w.elapsed)+'</span></div>'+
  '<div class="session-progress"><div style="width:'+Math.min(100,percent)+'%"></div></div><section class="session-focus"><div class="eyebrow">'+(rest?'REHAT':('GERAKAN '+w.sequence.filter((x,i)=>x.type==='exercise'&&i<=w.index).length))+'</div><h1 style="margin:8px 0">'+(rest?'Tarik nafas, rehat 😌':escapeHtml(ex.name))+'</h1><p class="muted">'+(rest?'Bersedia untuk gerakan seterusnya':escapeHtml(ex.reps)+' • '+escapeHtml(gearName(ex.gear)))+'</p>'+
  '<div class="session-art">'+(rest?'<span class="rest-art">◷</span>':art(ex,true))+'</div><div class="timer" id="time-left">'+clock(w.remaining)+'</div><div class="timer-sub">'+(rest?'Rest timer':'Ikut reps dengan teknik yang betul; timer sebagai panduan')+'</div>'+
  '<div class="session-actions"><button class="btn secondary" data-action="previous" '+(w.index===0?'disabled':'')+'>← Kembali</button><button class="btn" data-action="pause">'+(w.paused?'▶ Sambung':'Ⅱ Pause')+'</button><button class="btn secondary" data-action="next">'+(rest?'Skip →':'✓ Siap →')+'</button></div>'+
@@ -210,8 +225,8 @@ document.addEventListener('click',e=>{
   start(buildCorePlan(state.customizeMinutes,state.customizeLevel));return;
  }
  else if(action==='next'){advance(false);return;}
- else if(action==='previous'){const w=state.active;w.index=Math.max(0,w.index-1);const x=w.sequence[w.index];w.remaining=x.type==='rest'?x.seconds:getExercise(x.id).seconds;w.paused=true;}
- else if(action==='pause'){state.active.paused=!state.active.paused;}
+ else if(action==='previous'){tick();const w=state.active;if(!w)return;w.index=Math.max(0,w.index-1);const x=w.sequence[w.index];w.remaining=x.type==='rest'?x.seconds:getExercise(x.id).seconds;w.paused=true;}
+ else if(action==='pause'){tick();const w=state.active;if(!w)return;w.paused=!w.paused;w.lastTick=Date.now();}
  else if(action==='exit'){cancelWorkout();return;}
  else if(action==='finish-close'){state.finish=null;state.page='home';window.scrollTo(0,0);}
  else if(action==='export'){
@@ -219,7 +234,7 @@ document.addEventListener('click',e=>{
   const href=URL.createObjectURL(blob),a=document.createElement('a');a.href=href;a.download='senaman-progress-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(href),1000);return;
  }
  else if(action==='reset'){if(window.confirm('Padam semua rekod workout dalam browser ini?')){state.history=[];store();}}
- else if(action==='install'){state.installPrompt?.prompt();return;}
+ else if(action==='install'){installApp();return;}
  else return;
  render();
 });
@@ -238,8 +253,8 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
  if(e.target.id!=='exercise-search')return;
  state.query=e.target.value;
- const cursor=e.target.selectionStart;render();
- const input=document.querySelector('#exercise-search');input?.focus();try{input?.setSelectionRange(cursor,cursor);}catch(_){}
+ const box=document.querySelector('#exercise-results');
+ if(box)box.innerHTML=exerciseResults();
 });
 document.addEventListener('error',e=>{
  const img=e.target;if(!(img instanceof HTMLImageElement)||!img.dataset.demo)return;
@@ -247,16 +262,55 @@ document.addEventListener('error',e=>{
  if(frames){frames.innerHTML='<span class="art-fallback" role="img" aria-label="Ilustrasi tidak tersedia">◎</span>';}
  else img.classList.add('failed');
 },true);
-setInterval(()=>{
- const w=state.active;if(!w||w.paused)return;
- w.remaining--;w.elapsed++;
- if(w.remaining<=0)advance(false);
- else{
-  const display=document.querySelector('#time-left');if(display)display.textContent=clock(w.remaining);
-  const progress=document.querySelector('.session-progress>div');
-  if(progress){const item=w.sequence[w.index],max=item.type==='rest'?item.seconds:getExercise(item.id).seconds;progress.style.width=((w.index+(1-w.remaining/max))/w.sequence.length*100)+'%';}
+// Timer is driven by wall-clock timestamps, not by counting setInterval ticks: browsers
+// throttle or freeze timers when the screen locks or the tab is backgrounded, so we
+// measure how much real time passed and catch up (possibly across several steps).
+function tick(){
+ const w=state.active;if(!w)return;
+ const now=Date.now();
+ if(w.paused){w.lastTick=now;return;}
+ let delta=Math.floor((now-w.lastTick)/1000);
+ if(delta<=0)return;
+ w.lastTick+=delta*1000;
+ while(delta>0&&state.active===w){
+  const used=Math.min(delta,w.remaining);
+  w.remaining-=used;w.elapsed+=used;delta-=used;
+  if(w.remaining<=0){advance(false);if(state.active!==w)return;}
  }
-},1000);
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPrompt=e;});
+ const display=document.querySelector('#time-left');if(display)display.textContent=clock(w.remaining);
+ const elapsed=document.querySelector('#elapsed');if(elapsed)elapsed.textContent='◷ '+clock(w.elapsed);
+ const progress=document.querySelector('.session-progress>div');
+ if(progress){const item=w.sequence[w.index],max=item.type==='rest'?item.seconds:getExercise(item.id).seconds;progress.style.width=Math.min(100,(w.index+(1-w.remaining/max))/w.sequence.length*100)+'%';}
+}
+// Poll faster than 1s: tick() only consumes whole elapsed seconds, so this keeps the display
+// within ~250ms of real time instead of up to 1s behind.
+setInterval(tick,250);
+async function acquireWakeLock(){
+ if(!navigator.wakeLock?.request||state.wakeLock)return;
+ try{
+  const lock=await navigator.wakeLock.request('screen');
+  if(!state.active||state.wakeLock){lock.release().catch(()=>{});return;}
+  state.wakeLock=lock;
+  // The browser drops the lock itself when the page is hidden; forget it so we can re-request.
+  lock.addEventListener('release',()=>{if(state.wakeLock===lock)state.wakeLock=null;});
+ }catch(_){}
+}
+function releaseWakeLock(){const lock=state.wakeLock;state.wakeLock=null;lock?.release().catch(()=>{});}
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState!=='visible'||!state.active)return;
+ tick();acquireWakeLock();
+});
+const idle=()=>!state.active&&!state.finish;
+async function installApp(){
+ const prompt=state.installPrompt;if(!prompt)return;
+ try{await prompt.prompt();await prompt.userChoice;}catch(_){}
+ state.installPrompt=null; // a deferred prompt can only be used once
+ if(idle())render();
+}
+window.addEventListener('beforeinstallprompt',e=>{
+ e.preventDefault();state.installPrompt=e;
+ if(idle()&&!state.details&&state.page==='settings')render();
+});
+window.addEventListener('appinstalled',()=>{state.installPrompt=null;if(idle())render();});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register(import.meta.env.BASE_URL+'sw.js').catch(()=>{}));}
 render();
