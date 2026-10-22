@@ -1,6 +1,6 @@
-const CACHE='senaman-shell-v2';
+const CACHE='senaman-shell-v3';
 const MEDIA='senaman-media-v1';
-const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
+const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',event=>{
  event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);

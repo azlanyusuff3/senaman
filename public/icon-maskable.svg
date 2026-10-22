@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<!-- Full-bleed variant: no transparent corners, glyph kept inside the maskable safe zone. -->
+<rect width="512" height="512" fill="#b8f48b"/>
+<g transform="translate(256 256) scale(.92) translate(-256 -256)">
+<path d="M334 163c-43-36-123-29-157 20-29 42-8 91 46 105l52 13c33 9 31 43 1 53-25 9-57 1-82-23l-36 43c46 45 122 54 172 26 64-35 66-123-13-146l-60-17c-24-7-26-28-7-36 18-8 40-2 57 12z" fill="#11241a"/>
+</g>
+</svg>
